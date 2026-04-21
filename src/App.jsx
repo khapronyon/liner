@@ -1,20 +1,20 @@
 import { useState } from "react";
 
-const PERCORSI = ["Brano", "Album", "Vinile", "Concerto", "Artista"];
+const PERCORSI = ["Artista", "Album", "Brano", "Concerto", "Vinile"];
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 const PROMPT_BASE = `Sei un critico musicale che scrive per una rivista culturale seria. Il tuo tono è quello di un pezzo lungo di Rolling Stone o del Post italiano: autorevole, diretto, con un punto di vista netto. Non sei neutro — hai opinioni e le difendi. Usi l'ironia solo quando è davvero efficace, mai per riempire. Non usi mai frasi fatte, superlativi gratuiti o aggettivi vuoti come "magistrale", "capolavoro", "intramontabile". Non elenchi pregi in modo meccanico. Scrivi come un essere umano che conosce profondamente la musica e si annoia delle recensioni prevedibili. Per ogni asse scrivi un paragrafo di 3-4 righe in prosa sciolta, senza elenchi puntati, senza grassetto, senza titoli numerati. Separa ogni asse con il nome dell'asse su una riga da sola, senza numeri e senza grassetto. Il nome dell'asse deve corrispondere esattamente a uno di quelli elencati sotto.`;
 
 const ASSI_CONFIG = {
-  Brano: {
-    assi: ["Contesto storico", "Suono e produzione", "Influenze", "Eredità culturale", "Perché ascoltarlo oggi"],
-    prompt: (input) => `Analizza il brano "${input}" su questi 5 assi:
-— Contesto storico: dove si colloca questo brano e perché quel momento contava
-— Suono e produzione: cosa succede tecnicamente e cosa significa esteticamente
+  Artista: {
+    assi: ["Traiettoria", "Suono e identità", "Influenze", "Eredità e impatto", "Da dove iniziare"],
+    prompt: (input) => `Analizza l'artista "${input}" su questi 5 assi:
+— Traiettoria: come si è evoluto nel tempo, i momenti di svolta, le fasi della carriera
+— Suono e identità: cosa lo rende riconoscibile, qual è la sua firma sonora
 — Influenze: da dove viene, cosa ha assorbito e rielaborato
-— Eredità culturale: cosa ha lasciato, chi ha cambiato idea dopo averlo sentito
-— Perché ascoltarlo oggi: non la risposta ovvia`,
+— Eredità e impatto: chi ha influenzato, cosa ha cambiato nel panorama musicale
+— Da dove iniziare: il punto di ingresso consigliato per chi non lo conosce, non necessariamente il disco più famoso`,
   },
   Album: {
     assi: ["Contesto storico", "Suono e produzione", "Struttura e sequenza", "Eredità culturale", "Perché ascoltarlo oggi"],
@@ -25,14 +25,14 @@ const ASSI_CONFIG = {
 — Eredità culturale: cosa ha lasciato, chi ha cambiato idea dopo averlo sentito
 — Perché ascoltarlo oggi: non la risposta ovvia`,
   },
-  Vinile: {
-    assi: ["Contesto storico", "Suono e produzione", "Struttura lato A / lato B", "Collezionabilità", "Perché cercarlo oggi"],
-    prompt: (input) => `Analizza il vinile "${input}" su questi 5 assi:
-— Contesto storico: dove si colloca questa pubblicazione e perché quel momento contava
-— Suono e produzione: con attenzione specifica al formato fisico, al mastering per vinile, a cosa cambia rispetto al digitale
-— Struttura lato A / lato B: la divisione fisica come scelta editoriale e narrativa
-— Collezionabilità: edizioni, pressioni, rarità, artwork
-— Perché cercarlo oggi: cosa significa possedere questo disco in formato fisico`,
+  Brano: {
+    assi: ["Contesto storico", "Suono e produzione", "Influenze", "Eredità culturale", "Perché ascoltarlo oggi"],
+    prompt: (input) => `Analizza il brano "${input}" su questi 5 assi:
+— Contesto storico: dove si colloca questo brano e perché quel momento contava
+— Suono e produzione: cosa succede tecnicamente e cosa significa esteticamente
+— Influenze: da dove viene, cosa ha assorbito e rielaborato
+— Eredità culturale: cosa ha lasciato, chi ha cambiato idea dopo averlo sentito
+— Perché ascoltarlo oggi: non la risposta ovvia`,
   },
   Concerto: {
     assi: ["Contesto storico", "Setlist e struttura", "Suono e performance", "Pubblico e luogo", "Perché vederlo oggi"],
@@ -43,14 +43,14 @@ const ASSI_CONFIG = {
 — Pubblico e luogo: il rapporto con la venue, con il pubblico, l'atmosfera
 — Perché vederlo oggi: per i concerti registrati, o perché vale la pena cercarne i bootleg`,
   },
-  Artista: {
-    assi: ["Traiettoria", "Suono e identità", "Influenze", "Eredità e impatto", "Da dove iniziare"],
-    prompt: (input) => `Analizza l'artista "${input}" su questi 5 assi:
-— Traiettoria: come si è evoluto nel tempo, i momenti di svolta, le fasi della carriera
-— Suono e identità: cosa lo rende riconoscibile, qual è la sua firma sonora
-— Influenze: da dove viene, cosa ha assorbito e rielaborato
-— Eredità e impatto: chi ha influenzato, cosa ha cambiato nel panorama musicale
-— Da dove iniziare: il punto di ingresso consigliato per chi non lo conosce, non necessariamente il disco più famoso`,
+  Vinile: {
+    assi: ["Contesto storico", "Suono e produzione", "Struttura lato A / lato B", "Collezionabilità", "Perché cercarlo oggi"],
+    prompt: (input) => `Analizza il vinile "${input}" su questi 5 assi:
+— Contesto storico: dove si colloca questa pubblicazione e perché quel momento contava
+— Suono e produzione: con attenzione specifica al formato fisico, al mastering per vinile, a cosa cambia rispetto al digitale
+— Struttura lato A / lato B: la divisione fisica come scelta editoriale e narrativa
+— Collezionabilità: edizioni, pressioni, rarità, artwork
+— Perché cercarlo oggi: cosa significa possedere questo disco in formato fisico`,
   },
 };
 
@@ -64,28 +64,23 @@ const COLORI_PER_ASSE = [
 
 function parseOutput(testo, assi) {
   const sezioni = [];
-
   for (let i = 0; i < assi.length; i++) {
     const asse = assi[i];
     const prossimoAsse = assi[i + 1];
     const inizioAsse = testo.indexOf(asse);
     if (inizioAsse === -1) continue;
-
     const dopoAsse = testo.indexOf("\n", inizioAsse) + 1;
     let fineContenuto = testo.length;
-
     if (prossimoAsse) {
       const inizioProssimo = testo.indexOf(prossimoAsse, dopoAsse);
       if (inizioProssimo !== -1) fineContenuto = inizioProssimo;
     }
-
     sezioni.push({
       asse,
       contenuto: testo.slice(dopoAsse, fineContenuto).trim(),
       colore: COLORI_PER_ASSE[i],
     });
   }
-
   return sezioni;
 }
 
@@ -96,7 +91,7 @@ async function chiamaGeminiConRetry(percorso, input, onChunk, maxTentativi = 3) 
   for (let tentativo = 1; tentativo <= maxTentativi; tentativo++) {
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:streamGenerateContent?alt=sse&key=${API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -148,7 +143,7 @@ async function chiamaGeminiConRetry(percorso, input, onChunk, maxTentativi = 3) 
 }
 
 export default function App() {
-  const [percorso, setPercorso] = useState("Brano");
+  const [percorso, setPercorso] = useState("Artista");
   const [input, setInput] = useState("");
   const [outputRaw, setOutputRaw] = useState("");
   const [loading, setLoading] = useState(false);
@@ -203,30 +198,50 @@ export default function App() {
   }
 
   return (
-    <div style={{ fontFamily: "Georgia, serif", minHeight: "100vh", backgroundColor: "#F5F2EE", padding: "48px 24px", display: "flex", flexDirection: "column" }}>
+    <div style={{
+      fontFamily: "Georgia, serif",
+      minHeight: "100vh",
+      backgroundColor: "#F5F2EE",
+      padding: "32px 16px",
+      display: "flex",
+      flexDirection: "column",
+      boxSizing: "border-box",
+    }}>
 
       {/* Header */}
-      <div style={{ maxWidth: "900px", margin: "0 auto", textAlign: "center", marginBottom: "48px", width: "100%" }}>
-        <h1 style={{ fontSize: "3rem", fontWeight: "bold", letterSpacing: "-1px", marginBottom: "8px" }}>Liner</h1>
-        <p style={{ color: "#666", fontSize: "1rem" }}>Esplorazione musicale consapevole</p>
+      <div style={{ maxWidth: "900px", margin: "0 auto", textAlign: "center", marginBottom: "32px", width: "100%" }}>
+        <h1 style={{ fontSize: "clamp(2rem, 8vw, 3rem)", fontWeight: "bold", letterSpacing: "-1px", marginBottom: "6px" }}>Liner</h1>
+        <p style={{ color: "#666", fontSize: "clamp(0.85rem, 3vw, 1rem)" }}>Esplorazione musicale consapevole</p>
       </div>
 
       {/* Selettore percorso */}
-      <div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", justifyContent: "center", gap: "12px", marginBottom: "32px", flexWrap: "wrap", width: "100%" }}>
+      <div style={{
+        maxWidth: "900px",
+        margin: "0 auto",
+        display: "flex",
+        justifyContent: "center",
+        gap: "8px",
+        marginBottom: "24px",
+        flexWrap: "wrap",
+        width: "100%",
+        padding: "0 8px",
+        boxSizing: "border-box",
+      }}>
         {PERCORSI.map((p) => (
           <button
             key={p}
             onClick={() => handlePercorso(p)}
             style={{
-              padding: "8px 20px",
+              padding: "7px 16px",
               borderRadius: "999px",
               border: "2px solid #111",
               backgroundColor: percorso === p ? "#111" : "transparent",
               color: percorso === p ? "#fff" : "#111",
               fontFamily: "Georgia, serif",
-              fontSize: "0.95rem",
+              fontSize: "clamp(0.8rem, 3vw, 0.95rem)",
               cursor: "pointer",
               transition: "all 0.2s",
+              whiteSpace: "nowrap",
             }}
           >
             {p}
@@ -235,7 +250,7 @@ export default function App() {
       </div>
 
       {/* Campo input + bottone */}
-      <div style={{ maxWidth: "600px", margin: "0 auto", marginBottom: "48px", width: "100%" }}>
+      <div style={{ maxWidth: "600px", margin: "0 auto", marginBottom: "32px", width: "100%", padding: "0 8px", boxSizing: "border-box" }}>
         <input
           type="text"
           placeholder={`Inserisci un ${percorso.toLowerCase()}...`}
@@ -245,7 +260,7 @@ export default function App() {
           style={{
             width: "100%",
             padding: "14px 20px",
-            fontSize: "1rem",
+            fontSize: "clamp(0.9rem, 3.5vw, 1rem)",
             fontFamily: "Georgia, serif",
             border: "2px solid #111",
             borderRadius: "8px",
@@ -259,13 +274,14 @@ export default function App() {
             onClick={handleEsplora}
             disabled={loading}
             style={{
-              padding: "12px 40px",
+              width: "100%",
+              padding: "14px 40px",
               backgroundColor: "#111",
               color: "#fff",
               border: "none",
               borderRadius: "8px",
               fontFamily: "Georgia, serif",
-              fontSize: "1rem",
+              fontSize: "clamp(0.9rem, 3.5vw, 1rem)",
               cursor: loading ? "not-allowed" : "pointer",
               opacity: loading ? 0.6 : 1,
               transition: "opacity 0.2s",
@@ -278,69 +294,68 @@ export default function App() {
 
       {/* Errore */}
       {errore && (
-        <div style={{ maxWidth: "900px", margin: "0 auto 24px", color: "#c00", textAlign: "center", width: "100%" }}>
+        <div style={{ maxWidth: "900px", margin: "0 auto 24px", color: "#c00", textAlign: "center", width: "100%", padding: "0 16px", boxSizing: "border-box" }}>
           {errore}
         </div>
       )}
 
       {/* Streaming in corso */}
       {loading && outputRaw && (
-        <div style={{ maxWidth: "900px", margin: "0 auto", padding: "24px", backgroundColor: "#fff", borderRadius: "12px", border: "1px solid #ddd", whiteSpace: "pre-wrap", fontFamily: "Georgia, serif", lineHeight: "1.7", color: "#333", width: "100%" }}>
+        <div style={{
+          maxWidth: "900px",
+          margin: "0 auto",
+          padding: "20px",
+          backgroundColor: "#fff",
+          borderRadius: "12px",
+          border: "1px solid #ddd",
+          whiteSpace: "pre-wrap",
+          fontFamily: "Georgia, serif",
+          lineHeight: "1.7",
+          color: "#333",
+          width: "100%",
+          boxSizing: "border-box",
+        }}>
           {outputRaw}
         </div>
       )}
 
       {/* Output finale a box */}
       {completato && sezioni.length > 0 && (
-        <div style={{ maxWidth: "900px", margin: "0 auto", width: "100%" }}>
+        <div style={{ maxWidth: "900px", margin: "0 auto", width: "100%", padding: "0 8px", boxSizing: "border-box" }}>
 
           {/* Titolo ricerca */}
-          <div style={{ textAlign: "center", marginBottom: "32px" }}>
-            <p style={{ fontSize: "0.85rem", color: "#888", textTransform: "uppercase", letterSpacing: "2px", marginBottom: "6px" }}>{percorso}</p>
-            <h2 style={{ fontSize: "2rem", fontWeight: "bold", color: "#111" }}>{titoloRicerca}</h2>
+          <div style={{ textAlign: "center", marginBottom: "24px" }}>
+            <p style={{ fontSize: "0.8rem", color: "#888", textTransform: "uppercase", letterSpacing: "2px", marginBottom: "6px" }}>{percorso}</p>
+            <h2 style={{ fontSize: "clamp(1.4rem, 6vw, 2rem)", fontWeight: "bold", color: "#111" }}>{titoloRicerca}</h2>
           </div>
 
-          {/* Griglia 2-2-1 */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            {sezioni.slice(0, 4).map((s, i) => (
+          {/* Griglia — 1 colonna su mobile, 2 su desktop */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "12px",
+          }}>
+            {sezioni.map((s, i) => (
               <div
                 key={i}
                 style={{
                   backgroundColor: s.colore,
                   borderRadius: "12px",
-                  padding: "28px",
+                  padding: "24px",
                   color: "#fff",
                   animation: `fadeInUp 0.4s ease ${i * 0.1}s both`,
                 }}
               >
-                <p style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.7, marginBottom: "12px" }}>{s.asse}</p>
-                <p style={{ fontSize: "1rem", lineHeight: "1.75", margin: 0 }}>{s.contenuto}</p>
+                <p style={{ fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.7, marginBottom: "10px" }}>{s.asse}</p>
+                <p style={{ fontSize: "clamp(0.9rem, 3vw, 1rem)", lineHeight: "1.75", margin: 0 }}>{s.contenuto}</p>
               </div>
             ))}
           </div>
-
-          {/* Quinta box centrata */}
-          {sezioni[4] && (
-            <div style={{ marginTop: "16px" }}>
-              <div
-                style={{
-                  backgroundColor: sezioni[4].colore,
-                  borderRadius: "12px",
-                  padding: "28px",
-                  color: "#fff",
-                  animation: "fadeInUp 0.4s ease 0.4s both",
-                }}
-              >
-                <p style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.7, marginBottom: "12px" }}>{sezioni[4].asse}</p>
-                <p style={{ fontSize: "1rem", lineHeight: "1.75", margin: 0 }}>{sezioni[4].contenuto}</p>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
       {/* Footer */}
-      <div style={{ maxWidth: "900px", margin: "64px auto 0", width: "100%", textAlign: "center", borderTop: "1px solid #ddd", paddingTop: "24px" }}>
+      <div style={{ maxWidth: "900px", margin: "48px auto 0", width: "100%", textAlign: "center", borderTop: "1px solid #ddd", paddingTop: "24px" }}>
         <p style={{ fontSize: "0.8rem", color: "#999" }}>
           Le analisi di Liner sono generate con il supporto di Gemini, il modello AI di Google.
         </p>
