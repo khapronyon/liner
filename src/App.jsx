@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
 const PERCORSI = ["Artista", "Album", "Brano", "Concerto", "Vinile"];
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
@@ -280,6 +280,22 @@ function getSezione(sezioni, nome) {
   return sezioni.find((s) => s.nome === nome)?.contenuto || "";
 }
 
+// ─── PARSING ASCOLTO GUIDATO ──────────────────────────────────────────────────
+function parseRigaAscolto(riga) {
+  const pulita = riga.replace(/^\d+\.\s*/, "").trim();
+  const dashIdx = pulita.indexOf(" — ");
+  if (dashIdx === -1) return { titolo: pulita, artista: "", descrizione: "" };
+  const prima = pulita.slice(0, dashIdx).trim();
+  const resto = pulita.slice(dashIdx + 3).trim();
+  const colonIdx = resto.indexOf(":");
+  if (colonIdx === -1) return { titolo: prima, artista: resto, descrizione: "" };
+  return {
+    titolo: prima,
+    artista: resto.slice(0, colonIdx).trim(),
+    descrizione: resto.slice(colonIdx + 1).trim(),
+  };
+}
+
 // ─── CHIAMATA API ─────────────────────────────────────────────────────────────
 async function chiamaGemini(percorso, input, artista, onChunk, maxTentativi = 3) {
   const promptCompleto = ASSI_CONFIG[percorso].prompt(input, artista);
@@ -325,7 +341,86 @@ async function chiamaGemini(percorso, input, artista, onChunk, maxTentativi = 3)
   }
 }
 
-// ─── COMPONENTI ───────────────────────────────────────────────────────────────
+// ─── POPUP DI NAVIGAZIONE ─────────────────────────────────────────────────────
+function Popup({ dati, posizione, onEsplora, onChiudi }) {
+  const ref = useRef(null);
+
+  // Chiudi cliccando fuori dal popup
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) onChiudi();
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [onChiudi]);
+
+  // Chiudi se l'utente scrolla — non interrompe la lettura
+  useEffect(() => {
+    function handleScroll() { onChiudi(); }
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [onChiudi]);
+
+  if (!dati) return null;
+
+  // Calcola posizione sicura: il popup non esce mai dai bordi dello schermo
+  const popupW = 260;
+  const popupH = 150;
+  const x = Math.min(posizione.x, window.innerWidth - popupW - 16);
+  const y = Math.min(posizione.y, window.innerHeight - popupH - 16);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "fixed",
+        top: y,
+        left: x,
+        zIndex: 1000,
+        backgroundColor: "#fff",
+        border: "2px solid #111",
+        borderRadius: "12px",
+        padding: "16px 20px",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+        width: `${popupW}px`,
+        fontFamily: "Georgia, serif",
+        animation: "popupIn 0.15s ease-out",
+      }}
+    >
+      <p style={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: "2px", color: "#999", margin: "0 0 6px" }}>
+        {dati.percorso}
+      </p>
+      <p style={{ fontSize: "1rem", fontWeight: "bold", color: "#111", margin: "0 0 4px", lineHeight: "1.3" }}>
+        {dati.input}
+      </p>
+      {dati.artista && (
+        <p style={{ fontSize: "0.82rem", color: "#666", margin: "0 0 14px" }}>
+          {dati.artista}
+        </p>
+      )}
+      {!dati.artista && <div style={{ marginBottom: "14px" }} />}
+      <button
+        onClick={() => onEsplora(dati)}
+        style={{
+          width: "100%",
+          padding: "10px",
+          backgroundColor: "#111",
+          color: "#fff",
+          border: "none",
+          borderRadius: "8px",
+          fontFamily: "Georgia, serif",
+          fontSize: "0.88rem",
+          cursor: "pointer",
+        }}
+      >
+        Esplora →
+      </button>
+    </div>
+  );
+}
+
+// ─── COMPONENTI UI ────────────────────────────────────────────────────────────
+
 function Cronologia({ contenuto }) {
   const righe = contenuto.split("\n").map((r) => r.replace(/^[-•]\s*/, "").trim()).filter(Boolean);
   return (
@@ -349,8 +444,34 @@ function Cronologia({ contenuto }) {
   );
 }
 
-function SchedaTecnica({ contenuto }) {
+function SchedaTecnica({ contenuto, onLinkClick }) {
   const righe = contenuto.split("\n").map((r) => r.trim()).filter((r) => r.includes(":"));
+
+  function renderValore(chiave, valore) {
+    const chiaveLower = chiave.toLowerCase();
+    if (chiaveLower === "artista" || chiaveLower === "nome") {
+      return (
+        <span
+          onClick={(e) => onLinkClick(e, { percorso: "Artista", input: valore, artista: "" })}
+          style={{ cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px" }}
+        >
+          {valore}
+        </span>
+      );
+    }
+    if (chiaveLower === "album" && valore !== "Singolo" && valore !== "n.d.") {
+      return (
+        <span
+          onClick={(e) => onLinkClick(e, { percorso: "Album", input: valore, artista: "" })}
+          style={{ cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: "3px" }}
+        >
+          {valore}
+        </span>
+      );
+    }
+    return <span>{valore}</span>;
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
       {righe.map((r, i) => {
@@ -360,7 +481,7 @@ function SchedaTecnica({ contenuto }) {
         return (
           <div key={i} style={{ display: "flex", gap: "12px", alignItems: "baseline" }}>
             <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "1.5px", opacity: 0.5, minWidth: "80px", flexShrink: 0 }}>{chiave}</span>
-            <span style={{ fontSize: "0.9rem", lineHeight: "1.4" }}>{valore}</span>
+            <span style={{ fontSize: "0.9rem", lineHeight: "1.4" }}>{renderValore(chiave, valore)}</span>
           </div>
         );
       })}
@@ -368,8 +489,9 @@ function SchedaTecnica({ contenuto }) {
   );
 }
 
-function AscoltoGuidato({ contenuto }) {
+function AscoltoGuidato({ contenuto, onLinkClick }) {
   const righe = contenuto.split("\n").map((r) => r.replace(/^\d+\.\s*/, "").trim()).filter(Boolean);
+
   return (
     <div style={{ backgroundColor: "#111", borderRadius: "16px", padding: "28px", color: "#fff" }}>
       <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.4, margin: "0 0 20px" }}>
@@ -377,10 +499,10 @@ function AscoltoGuidato({ contenuto }) {
       </p>
       <div style={{ display: "flex", flexDirection: "column" }}>
         {righe.map((r, i) => {
-          const colonIdx = r.indexOf(":");
-          const titolo = colonIdx !== -1 ? r.slice(0, colonIdx).trim() : r;
-          const istruzione = colonIdx !== -1 ? r.slice(colonIdx + 1).trim() : "";
+          const { titolo, artista, descrizione } = parseRigaAscolto(r);
           const isCentrale = i === 2;
+          const labelCompleta = artista ? `${titolo} — ${artista}` : titolo;
+
           return (
             <div key={i} style={{ padding: "14px 0", borderBottom: i < righe.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none", display: "flex", alignItems: "flex-start", gap: "14px" }}>
               <div style={{ width: "28px", height: "28px", borderRadius: "50%", flexShrink: 0, marginTop: "2px", backgroundColor: isCentrale ? "#fff" : "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -391,8 +513,27 @@ function AscoltoGuidato({ contenuto }) {
                 )}
               </div>
               <div style={{ flex: 1 }}>
-                <p style={{ fontSize: isCentrale ? "1rem" : "0.88rem", fontWeight: isCentrale ? "bold" : "normal", margin: "0 0 4px", opacity: isCentrale ? 1 : 0.75 }}>{titolo}</p>
-                {istruzione && <p style={{ fontSize: "0.75rem", opacity: 0.4, margin: 0, lineHeight: "1.5", fontStyle: "italic" }}>{istruzione}</p>}
+                <p
+                  onClick={(e) => onLinkClick(e, { percorso: "Brano", input: titolo, artista })}
+                  style={{
+                    fontSize: isCentrale ? "1rem" : "0.88rem",
+                    fontWeight: isCentrale ? "bold" : "normal",
+                    margin: "0 0 4px",
+                    opacity: isCentrale ? 1 : 0.75,
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    textDecorationStyle: "dotted",
+                    textUnderlineOffset: "3px",
+                    textDecorationColor: "rgba(255,255,255,0.4)",
+                  }}
+                >
+                  {labelCompleta}
+                </p>
+                {descrizione && (
+                  <p style={{ fontSize: "0.75rem", opacity: 0.4, margin: 0, lineHeight: "1.5", fontStyle: "italic" }}>
+                    {descrizione}
+                  </p>
+                )}
               </div>
             </div>
           );
@@ -421,8 +562,8 @@ function NonTrovato({ input }) {
 
 function BoxAsse({ s, colore, children }) {
   return (
-    <div style={{ backgroundColor: colore, borderRadius: "12px", padding: "24px", color: "#fff" }}>
-      <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.6, margin: "0 0 12px" }}>{s.nome}</p>
+    <div style={{ backgroundColor: colore, borderRadius: "12px", padding: "24px", color: "#fff", display: "flex", flexDirection: "column", gap: "12px" }}>
+      <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.6, margin: 0 }}>{s.nome}</p>
       {children || <p style={{ fontSize: "clamp(0.85rem, 2.5vw, 0.95rem)", lineHeight: "1.75", margin: 0 }}>{s.contenuto}</p>}
     </div>
   );
@@ -439,6 +580,13 @@ export default function App() {
   const [titoloRicerca, setTitoloRicerca] = useState("");
   const [completato, setCompletato] = useState(false);
 
+  // Stato del popup: null = chiuso, oppure { dati, x, y }
+  const [popup, setPopup] = useState(null);
+
+  // Scheda precedente salvata in memoria — torna indietro senza nuova chiamata API
+  // Struttura: { percorso, input, artista, outputRaw, titoloRicerca }
+  const [schedaPrecedente, setSchedaPrecedente] = useState(null);
+
   const mostraArtista = percorso !== "Artista";
   const config = ASSI_CONFIG[percorso];
   const nonTrovato = completato && outputRaw.includes("Non ho informazioni sufficienti");
@@ -449,21 +597,85 @@ export default function App() {
   const ascolto = getSezione(sezioni, "Ascolto guidato");
   const frase = getSezione(sezioni, "Frase definitiva");
 
-  function handlePercorso(p) {
-    setPercorso(p);
-    setOutputRaw("");
-    setCompletato(false);
-    setTitoloRicerca("");
-    setErrore("");
-    setInput("");
-    setArtista("");
+  // ── Click su un link: apre il popup vicino al testo cliccato ─────────────
+  function handleLinkClick(e, dati) {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPopup({
+      dati,
+      x: rect.left,
+      y: rect.bottom + 8,
+    });
   }
 
+  // ── Esplora dal popup ─────────────────────────────────────────────────────
+  // Salva la scheda attuale, poi parte con la nuova ricerca
+  async function handleEsploraPopup(dati) {
+    setPopup(null);
+
+    // Congela la scheda corrente prima di sovrascriverla
+    setSchedaPrecedente({
+      percorso,
+      input,
+      artista,
+      outputRaw,
+      titoloRicerca,
+    });
+
+    // Aggiorna i campi con i nuovi dati
+    setPercorso(dati.percorso);
+    setInput(dati.input);
+    setArtista(dati.artista || "");
+    setOutputRaw("");
+    setCompletato(false);
+    setErrore("");
+
+    const nuovoTitolo = dati.artista ? `${dati.input} — ${dati.artista}` : dati.input;
+    setTitoloRicerca(nuovoTitolo);
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    setLoading(true);
+    let testo = "";
+    try {
+      await chiamaGemini(dati.percorso, dati.input, dati.artista || "", (chunk) => {
+        testo += chunk;
+        setOutputRaw(testo);
+      });
+      setCompletato(true);
+    } catch (e) {
+      console.error(e);
+      setErrore(
+        e.message.includes("UNAVAILABLE")
+          ? "Gemini è sovraccarico. Riprova tra qualche secondo."
+          : "Qualcosa è andato storto. Riprova."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Torna indietro — ripristina la scheda precedente senza API ────────────
+  function handleTornaIndietro() {
+    if (!schedaPrecedente) return;
+    setPercorso(schedaPrecedente.percorso);
+    setInput(schedaPrecedente.input);
+    setArtista(schedaPrecedente.artista);
+    setOutputRaw(schedaPrecedente.outputRaw);
+    setTitoloRicerca(schedaPrecedente.titoloRicerca);
+    setCompletato(true);
+    setErrore("");
+    setSchedaPrecedente(null); // Un solo livello di storia — coerente con la UX
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // ── Ricerca manuale ───────────────────────────────────────────────────────
   async function handleEsplora() {
     if (!input.trim()) return;
     setLoading(true);
     setOutputRaw("");
     setErrore("");
+    setSchedaPrecedente(null); // Nuova ricerca manuale azzera la storia
     const titolo = artista.trim() ? `${input} — ${artista}` : input;
     setTitoloRicerca(titolo);
     setCompletato(false);
@@ -486,8 +698,29 @@ export default function App() {
     }
   }
 
+  function handlePercorso(p) {
+    setPercorso(p);
+    setOutputRaw("");
+    setCompletato(false);
+    setTitoloRicerca("");
+    setErrore("");
+    setInput("");
+    setArtista("");
+    setSchedaPrecedente(null);
+  }
+
   return (
     <div style={{ fontFamily: "Georgia, serif", minHeight: "100vh", backgroundColor: "#F5F2EE", padding: "32px 16px", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
+
+      {/* Popup di navigazione — si monta sopra tutto il resto */}
+      {popup && (
+        <Popup
+          dati={popup.dati}
+          posizione={{ x: popup.x, y: popup.y }}
+          onEsplora={handleEsploraPopup}
+          onChiudi={() => setPopup(null)}
+        />
+      )}
 
       {/* Header */}
       <div style={{ maxWidth: "960px", margin: "0 auto", textAlign: "center", marginBottom: "32px", width: "100%" }}>
@@ -561,6 +794,32 @@ export default function App() {
       {completato && !nonTrovato && sezioni.length > 0 && (
         <div style={{ maxWidth: "960px", margin: "0 auto", width: "100%", padding: "0 8px", boxSizing: "border-box" }}>
 
+          {/* Tasto torna indietro — visibile solo se esiste una scheda precedente */}
+          {schedaPrecedente && (
+            <div style={{ marginBottom: "20px" }}>
+              <button
+                onClick={handleTornaIndietro}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontFamily: "Georgia, serif",
+                  fontSize: "0.85rem",
+                  color: "#666",
+                  cursor: "pointer",
+                  padding: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  textDecoration: "underline",
+                  textDecorationStyle: "dotted",
+                  textUnderlineOffset: "3px",
+                }}
+              >
+                ← Torna a "{schedaPrecedente.titoloRicerca}"
+              </button>
+            </div>
+          )}
+
           <div style={{ textAlign: "center", marginBottom: "32px" }}>
             <p style={{ fontSize: "0.75rem", color: "#999", textTransform: "uppercase", letterSpacing: "3px", marginBottom: "8px" }}>{percorso}</p>
             <h2 style={{ fontSize: "clamp(1.6rem, 6vw, 2.4rem)", fontWeight: "bold", color: "#111", margin: 0 }}>{titoloRicerca}</h2>
@@ -571,7 +830,7 @@ export default function App() {
           <div className="griglia-box">
             {schedaTecnica && (
               <BoxAsse s={{ nome: "Scheda tecnica" }} colore={COLORI_ASSI[0]}>
-                <SchedaTecnica contenuto={schedaTecnica} />
+                <SchedaTecnica contenuto={schedaTecnica} onLinkClick={handleLinkClick} />
               </BoxAsse>
             )}
             {assiSezioni.filter(s => s.nome !== "Scheda tecnica").map((s, i) => (
@@ -581,7 +840,7 @@ export default function App() {
 
           {ascolto && (
             <div style={{ marginTop: "16px", marginBottom: "16px" }}>
-              <AscoltoGuidato contenuto={ascolto} />
+              <AscoltoGuidato contenuto={ascolto} onLinkClick={handleLinkClick} />
             </div>
           )}
 
@@ -601,6 +860,10 @@ export default function App() {
       </div>
 
       <style>{`
+        @keyframes popupIn {
+          from { opacity: 0; transform: translateY(-6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
