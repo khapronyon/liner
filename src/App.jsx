@@ -8,196 +8,258 @@ const PROMPT_BASE = `Sei un critico musicale con trent'anni di esperienza in ele
 Scrivi come un saggista di settore: autorevolezza, precisione, punto di vista netto.
 Non sei un'enciclopedia generica — ogni frase deve guadagnarsi il diritto di stare lì.
 
-VINCOLI OBBLIGATORI — non sono suggerimenti, sono regole assolute:
-- Cita SEMPRE nomi propri reali: artisti, produttori, ingegneri del suono, etichette, studi di registrazione, città.
-- Cita SEMPRE almeno 3 brani specifici con titolo esatto tra tutti gli assi.
-- Cita SEMPRE almeno 2 date o anni precisi per localizzare il soggetto nel tempo.
-- Non usare MAI queste frasi senza supporto fattuale: "ha influenzato molti artisti", "è considerato un capolavoro", "è un disco fondamentale", "ha cambiato la musica per sempre". Se le usi, devi citare chi, cosa, quando, come.
-- Ogni affermazione deve essere verificabile. Se non hai un fatto concreto, non scrivere la frase.
+REGOLA PRIORITARIA — prima di tutto il resto:
+Se il soggetto non ti è specificato con artista, interpreta il titolo nel modo più probabile e procedi con l'analisi — specificando tu stesso nella Scheda tecnica quale versione stai analizzando. Solo se il soggetto non esiste o non ti è noto in modo sufficiente per compilare almeno 3 assi con fatti reali, rispondi SOLO con questa frase esatta:
+"Non ho informazioni sufficienti su questo soggetto per produrre un'analisi affidabile."
+Non aggiungere nulla. È preferibile non rispondere che inventare.
+
+REGOLE SULL'ACCURATEZZA — in ordine di priorità:
+1. Fatti certi e documentati: scrivili con sicurezza.
+2. Fatti molto probabili e storicamente consolidati (es. un album pubblicato da una major negli anni '90): scrivili, sono accettabili.
+3. Dettagli specifici incerti (nome esatto dello studio, data precisa di una sessione, nome di un ingegnere del suono minore): omettili o usa formule come "registrato a Los Angeles" senza nominare lo studio se non lo sai con certezza.
+4. Versi di testi, titoli di brani, nomi di persone reali: MASSIMA PRECISIONE. Non citare mai versi di un brano per descrivere un altro brano dello stesso artista. Non attribuire dichiarazioni a persone reali senza certezza.
+5. Se inventi qualcosa che sembra plausibile ma non è verificabile: NON farlo. Riduci la lunghezza della sezione invece di riempire con speculazioni.
+
+VINCOLI OBBLIGATORI:
+- Non confondere MAI testi, brani, titoli o dettagli di un soggetto con quelli di un altro soggetto dello stesso artista.
+- Non collegare artisti per influenza solo perché condividono un genere: l'influenza deve essere documentata o storicamente evidente.
+- Non attribuire MAI dichiarazioni o citazioni a persone reali senza certezza documentata.
 - Tono: saggistico, diretto, mai entusiasta o promozionale. Puoi essere critico.
-- Lingua: italiano.
-- Nessun grassetto, nessun elenco puntato, nessun titolo numerato. Solo prosa sciolta.`;
+- Se l'artista non è specificato, scegli l'interpretazione più nota e consolidata del titolo, specificala nella Scheda tecnica, e procedi. Non bloccarti per ambiguità.
+- Lingua: italiano. Nessun grassetto, nessun elenco puntato, nessun titolo numerato. Solo prosa sciolta.`;
+
+// ─── BLOCCHI SEZIONE RIUSABILI ────────────────────────────────────────────────
+const CRONOLOGIA = `Cronologia essenziale
+Massimo 6 voci in formato: anno — evento specifico.
+Includi SOLO eventi che conosci con certezza documentata. Se non sei sicuro di un anno esatto, non includerlo. È preferibile una cronologia di 3 voci certe che una di 6 con alcune inventate.`;
+
+const ASCOLTO_GUIDATO = `Ascolto guidato
+Costruisci un percorso di ascolto coerente di 5 brani.
+COERENZA: ogni brano deve avere una relazione precisa e documentabile con il soggetto — per influenza diretta storica, per contesto condiviso verificabile, per parentela sonora evidente e specifica. NON scegliere brani per associazione vaga di genere o per popolarità generica.
+ESISTENZA: cita SOLO brani che esistono realmente con titolo e artista corretti.
+Il soggetto principale occupa sempre la posizione 3.
+Formato — una riga per brano, esattamente così:
+1. Titolo — Artista: [perché ascoltarlo prima, cosa prepara in relazione al soggetto]
+2. Titolo — Artista: [connessione specifica e documentabile con il soggetto]
+3. Titolo — Artista: [cosa ascoltare in modo specifico]
+4. Titolo — Artista: [cosa cambia, dove si va — con motivazione precisa]
+5. Titolo — Artista: [dove porta questo percorso — con motivazione precisa]`;
+
+const FRASE_DEFINITIVA = `Frase definitiva
+Una sola frase. Massimo 30 parole. Punto di vista critico netto. Non deve piacere a tutti — deve essere vera.`;
 
 // ─── ASSI CONFIG ──────────────────────────────────────────────────────────────
 const ASSI_CONFIG = {
   Brano: {
-    assi: ["Genesi", "Anatomia sonora", "Posizione storica", "Testo e voce", "Perché ancora"],
-    prompt: (input) => `${PROMPT_BASE}
+    assi: ["Scheda tecnica", "Genesi", "Anatomia sonora", "Posizione storica", "Testo e voce", "Perché ancora"],
+    prompt: (input, artista) => `${PROMPT_BASE}
 
-Analizza il brano "${input}". Struttura l'output ESATTAMENTE così, usando questi titoli di sezione su una riga sola:
+Analizza il brano "${input}"${artista ? ` di ${artista}` : ""}. Struttura l'output ESATTAMENTE con questi titoli di sezione su una riga sola, nell'ordine indicato:
 
-Cronologia essenziale
-Formato lista, massimo 6 voci: anno — evento specifico. Solo i momenti che cambiano qualcosa.
+${CRONOLOGIA}
+
+Scheda tecnica
+Compila SOLO i campi che conosci con certezza. Per i campi incerti scrivi "n.d." invece di inventare.
+Titolo: [titolo esatto del brano]
+Artista: [nome artista o band]
+Album: [album di appartenenza, o "Singolo", o "n.d." se incerto]
+Anno: [anno di pubblicazione, o decennio se l'anno esatto è incerto]
+Genere: [genere principale e sottogenere se rilevante]
+Etichetta: [etichetta discografica, o "n.d." se incerta]
+Produttore: [nome produttore/i, o "n.d." se incerto]
 
 Genesi
-Come è nato questo brano. Cita anno, luogo, studio di registrazione, chi era presente, produttore. Almeno un dettaglio specifico e verificabile sulla sessione o sul periodo compositivo. (150-200 parole di prosa)
+Come è nato questo brano. Cita anno, luogo o studio di registrazione, produttore — SOLO se li conosci con certezza. Se non conosci il nome dello studio, non inventarlo. Includi almeno un dettaglio specifico e verificabile sulla sessione o sul periodo compositivo. (150-200 parole di prosa)
 
 Anatomia sonora
-Cosa si sente e perché conta. Struttura del brano, strumentazione, scelte di produzione distintive. Cita almeno 2 elementi tecnici specifici (accordatura, tempo, effetti usati, strumento insolito, tecnica di registrazione) e spiega il loro impatto sul risultato finale. (150-200 parole di prosa)
+Cosa si sente e perché conta. Struttura del brano, strumentazione, scelte di produzione distintive. Cita almeno 2 elementi tecnici specifici che sono EFFETTIVAMENTE presenti e udibili in questo brano — non elementi generici del genere o dell'artista. Se non sei certo di quale strumento specifico è stato usato, descrivi l'effetto sonoro invece di nominare lo strumento. (150-200 parole di prosa)
 
 Posizione storica
-Dove si colloca questo brano nella storia della musica. Cita almeno 2 artisti o movimenti che lo hanno preceduto e influenzato (con anni). Cita almeno 2 artisti o opere successive che ha influenzato (con anni e titoli specifici). (150-200 parole di prosa)
+Dove si colloca questo brano nella storia della musica. Cita almeno 2 artisti o movimenti che lo hanno preceduto e influenzato — SOLO se l'influenza è documentata o storicamente evidente, non per associazione vaga di genere. Cita almeno 2 artisti o opere successive che ha influenzato — con anni e titoli specifici, e solo se l'influenza è documentabile. (150-200 parole di prosa)
 
 Testo e voce
-Cosa dice il testo e come viene detto. Cita versi specifici tra virgolette. Analizza la performance vocale con riferimenti tecnici o espressivi precisi. Se il brano è strumentale, analizza la melodia principale come se fosse una voce. (100-150 parole di prosa)
+Analizza il testo e la performance vocale del brano "${input}"${artista ? ` di ${artista}` : ""}.
+REGOLA CRITICA: se citi versi tra virgolette, devono appartenere ESCLUSIVAMENTE a questo brano specifico — non ad altri brani dello stesso artista, non a brani con titolo simile, non a brani dello stesso album. Se non ricordi con certezza assoluta i versi di questo brano specifico, NON citare versi: descrivi temi, mood e performance vocale senza virgolette. Analizza ciò che si ascolta effettivamente in questo brano. Se strumentale, analizza la melodia principale come se fosse una voce. (100-150 parole di prosa)
 
 Perché ancora
-Perché questo brano conta oggi. Argomenta con riferimenti concreti: campionamenti documentati con artista e anno, cover significative, usi in film o serie con titolo, momenti culturali specifici. Nessun luogo comune. (100-150 parole di prosa)
+Perché questo brano conta oggi. Argomenta con riferimenti concreti e verificabili: campionamenti documentati con artista e anno, cover significative con artista e anno, usi in film o serie con titolo verificabile. Se non hai riferimenti concreti sufficienti, riduci la sezione invece di speculare. (100-150 parole di prosa)
 
-Ascolto guidato
-3 brani in ordine. Il brano in analisi è sempre il secondo. Formato per ogni voce — una riga ciascuna:
-1. Titolo — Artista: istruzione specifica di ascolto
-2. Titolo — Artista: cosa ascoltare in modo specifico
-3. Titolo — Artista: dove porta
+${ASCOLTO_GUIDATO}
 
-Frase definitiva
-Una sola frase. Massimo 30 parole. Punto di vista critico netto. Non deve piacere a tutti — deve essere vera.`,
+${FRASE_DEFINITIVA}`,
   },
 
   Artista: {
-    assi: ["Traiettoria", "Suono e identità", "Influenze", "Eredità e impatto", "Da dove iniziare"],
+    assi: ["Scheda tecnica", "Traiettoria", "Suono e identità", "Influenze", "Eredità e impatto", "Da dove iniziare"],
     prompt: (input) => `${PROMPT_BASE}
 
-Analizza l'artista "${input}". Struttura l'output ESATTAMENTE così, usando questi titoli di sezione su una riga sola:
+Analizza l'artista "${input}". Struttura l'output ESATTAMENTE con questi titoli di sezione su una riga sola, nell'ordine indicato:
 
-Cronologia essenziale
-Formato lista, massimo 6 voci: anno — evento specifico. Solo i momenti che cambiano qualcosa.
+${CRONOLOGIA}
+
+Scheda tecnica
+Compila SOLO i campi che conosci con certezza. Per i campi incerti scrivi "n.d." invece di inventare.
+Nome: [nome artista o band]
+Origine: [città e paese]
+Attivo dal: [anno di inizio attività, o decennio se incerto]
+Genere: [genere principale e sottogenere se rilevante]
+Etichetta: [etichetta attuale o più rilevante, o "n.d." se incerta]
+Formazione: [membri principali se band, o "Solista"]
+Disco più noto: [titolo e anno — SOLO se sei certo che esiste]
 
 Traiettoria
-Come si è evoluto nel tempo. Cita i momenti di svolta con anni precisi, i dischi che segnano ogni fase, i cambi di lineup o direzione artistica documentati. (150-200 parole di prosa)
+Come si è evoluto nel tempo. Cita i momenti di svolta con anni precisi, i dischi che segnano ogni fase, i cambi di lineup o direzione artistica documentati — SOLO eventi che conosci con certezza. (150-200 parole di prosa)
 
 Suono e identità
-Cosa lo rende riconoscibile. Cita strumenti specifici, tecniche produttive, collaboratori ricorrenti (produttori, session musician), etichette discografiche che hanno definito il suono. (150-200 parole di prosa)
+Cosa lo rende riconoscibile. Cita strumenti specifici, tecniche produttive, collaboratori ricorrenti — SOLO se li conosci con certezza documentata per questo artista specifico, non per generalizzazione di genere. (150-200 parole di prosa)
 
 Influenze
-Da dove viene. Cita almeno 3 artisti o movimenti con anni e dischi specifici che si sentono nel suono. Spiega il meccanismo dell'influenza — non basta nominarla. (150-200 parole di prosa)
+Da dove viene. Cita almeno 3 artisti o movimenti con anni e dischi specifici — SOLO se l'influenza è documentata o dichiarata dall'artista stesso o storicamente evidente. Non collegare artisti solo perché condividono un genere. Spiega il meccanismo specifico dell'influenza. (150-200 parole di prosa)
 
 Eredità e impatto
-Chi ha influenzato. Cita almeno 3 artisti successivi con anni e opere specifiche. Spiega in cosa consiste l'influenza concretamente, non in modo generico. (150-200 parole di prosa)
+Chi ha influenzato. Cita almeno 3 artisti successivi con anni e opere specifiche — SOLO se l'influenza è documentabile, non per associazione vaga. Spiega in cosa consiste concretamente. (150-200 parole di prosa)
 
 Da dove iniziare
-Il punto di ingresso consigliato per chi non lo conosce. Non necessariamente il disco più famoso — quello più rivelatore. Spiega perché questo e non un altro, con riferimenti a brani specifici. (100-150 parole di prosa)
+Il punto di ingresso consigliato per chi non lo conosce. Non necessariamente il disco più famoso — quello più rivelatore. Spiega perché questo e non un altro, con riferimenti a brani specifici che esistono realmente. (100-150 parole di prosa)
 
-Ascolto guidato
-3 dischi in ordine consigliato. Formato per ogni voce — una riga ciascuna:
-1. Titolo — Anno: istruzione specifica di ascolto
-2. Titolo — Anno: istruzione specifica di ascolto
-3. Titolo — Anno: dove porta
+${ASCOLTO_GUIDATO.replace(
+  "Il soggetto principale occupa sempre la posizione 3.",
+  "Il soggetto è l'artista: includi almeno 2 suoi brani o dischi nella sequenza (posizioni 2 e 3). Gli altri 3 brani devono avere connessione documentabile con questo artista specifico."
+)}
 
-Frase definitiva
-Una sola frase. Massimo 30 parole. Punto di vista critico netto. Non deve piacere a tutti — deve essere vera.`,
+${FRASE_DEFINITIVA}`,
   },
 
   Album: {
-    assi: ["Contesto storico", "Suono e produzione", "Struttura e sequenza", "Eredità culturale", "Perché ascoltarlo oggi"],
-    prompt: (input) => `${PROMPT_BASE}
+    assi: ["Scheda tecnica", "Contesto storico", "Suono e produzione", "Struttura e sequenza", "Eredità culturale", "Perché ascoltarlo oggi"],
+    prompt: (input, artista) => `${PROMPT_BASE}
 
-Analizza l'album "${input}". Struttura l'output ESATTAMENTE così, usando questi titoli di sezione su una riga sola:
+Analizza l'album "${input}"${artista ? ` di ${artista}` : ""}. Struttura l'output ESATTAMENTE con questi titoli di sezione su una riga sola, nell'ordine indicato:
 
-Cronologia essenziale
-Formato lista, massimo 6 voci: anno — evento specifico. Solo i momenti che cambiano qualcosa.
+${CRONOLOGIA}
+
+Scheda tecnica
+Compila SOLO i campi che conosci con certezza. Per i campi incerti scrivi "n.d." invece di inventare.
+Titolo: [titolo esatto dell'album]
+Artista: [nome artista o band]
+Anno: [anno di pubblicazione, o decennio se incerto]
+Genere: [genere principale e sottogenere se rilevante]
+Etichetta: [etichetta discografica, o "n.d." se incerta]
+Produttore: [nome produttore/i, o "n.d." se incerto]
+Durata: [durata totale approssimativa, o "n.d." se incerta]
 
 Contesto storico
-Dove si colloca questo album e perché quel momento contava. Cita anno, etichetta, cosa stava succedendo musicalmente e culturalmente in quel periodo con riferimenti specifici. (150-200 parole di prosa)
+Dove si colloca questo album e perché quel momento contava. Cita anno, etichetta, cosa stava succedendo musicalmente e culturalmente — con riferimenti specifici e verificabili. (150-200 parole di prosa)
 
 Suono e produzione
-Cosa succede tecnicamente e cosa significa esteticamente. Cita produttore, studio, strumenti specifici, tecniche di registrazione documentate. Almeno 2 brani dell'album come esempio concreto. (150-200 parole di prosa)
+Cosa succede tecnicamente e cosa significa esteticamente. Cita produttore, studio, strumenti specifici, tecniche di registrazione — SOLO se documentati per questo album specifico. Usa almeno 2 brani dell'album come esempio concreto, citandoli per nome corretto. (150-200 parole di prosa)
 
 Struttura e sequenza
-La logica interna dell'album. Come i brani si parlano tra loro, cosa succede dall'apertura alla chiusura. Cita i brani per nome e spiega il loro ruolo nella sequenza. (150-200 parole di prosa)
+La logica interna dell'album. Come i brani si parlano tra loro, cosa succede dall'apertura alla chiusura. Cita i brani per nome — SOLO i titoli corretti di questo album, non di altri album dello stesso artista. (150-200 parole di prosa)
 
 Eredità culturale
-Cosa ha lasciato. Chi ha cambiato rotta dopo averlo sentito — con nomi, anni, opere specifiche. Non "ha influenzato molti artisti": nomina almeno 3. (150-200 parole di prosa)
+Cosa ha lasciato. Chi ha cambiato rotta dopo averlo sentito — con nomi, anni, opere specifiche e documentabili. Non "ha influenzato molti artisti": nomina almeno 3 con connessione verificabile. (150-200 parole di prosa)
 
 Perché ascoltarlo oggi
-Non la risposta ovvia. Argomenta con un'angolazione inaspettata — cosa si sente oggi che nel momento dell'uscita era impossibile sentire, o cosa è rimasto irrisolto e ancora aperto. (100-150 parole di prosa)
+Non la risposta ovvia. Argomenta con un'angolazione inaspettata e concreta — cosa si sente oggi che nel momento dell'uscita era impossibile sentire, o cosa è rimasto irrisolto. Nessuna speculazione non supportata. (100-150 parole di prosa)
 
-Ascolto guidato
-3 brani dell'album in ordine consigliato. Formato per ogni voce — una riga ciascuna:
-1. Titolo: istruzione specifica di ascolto
-2. Titolo: istruzione specifica di ascolto
-3. Titolo: dove porta
+${ASCOLTO_GUIDATO.replace(
+  "Il soggetto principale occupa sempre la posizione 3.",
+  "L'album è il soggetto: includi almeno 2 brani di questo album nelle posizioni 2 e 3. Cita i titoli corretti — non brani di altri album dello stesso artista."
+)}
 
-Frase definitiva
-Una sola frase. Massimo 30 parole. Punto di vista critico netto. Non deve piacere a tutti — deve essere vera.`,
+${FRASE_DEFINITIVA}`,
   },
 
   Concerto: {
-    assi: ["Contesto storico", "Setlist e struttura", "Suono e performance", "Pubblico e luogo", "Perché cercarlo oggi"],
-    prompt: (input) => `${PROMPT_BASE}
+    assi: ["Scheda tecnica", "Contesto storico", "Setlist e struttura", "Suono e performance", "Pubblico e luogo", "Perché cercarlo oggi"],
+    prompt: (input, artista) => `${PROMPT_BASE}
 
-Analizza il concerto "${input}". Struttura l'output ESATTAMENTE così, usando questi titoli di sezione su una riga sola:
+Analizza il concerto "${input}"${artista ? ` di ${artista}` : ""}. Struttura l'output ESATTAMENTE con questi titoli di sezione su una riga sola, nell'ordine indicato:
 
-Cronologia essenziale
-Formato lista, massimo 6 voci: anno — evento specifico. Solo i momenti che cambiano qualcosa.
+${CRONOLOGIA}
+
+Scheda tecnica
+Compila SOLO i campi che conosci con certezza. Per i campi incerti scrivi "n.d." invece di inventare.
+Artista: [nome artista o band]
+Data: [data o periodo del concerto, o "n.d." se incerta]
+Venue: [nome della venue, o "n.d." se incerta]
+Città: [città e paese]
+Tour: [nome del tour se applicabile, o "n.d."]
+Registrazione: [sì / no / parziale / n.d.]
 
 Contesto storico
-In che momento della carriera si colloca, cosa stava succedendo intorno. Cita anno, città, venue, tour di riferimento e cosa significava quel momento per l'artista. (150-200 parole di prosa)
+In che momento della carriera si colloca, cosa stava succedendo intorno. Cita anno, città, venue, tour — SOLO informazioni che conosci con certezza per questo concerto specifico. (150-200 parole di prosa)
 
 Setlist e struttura
-Come è costruita la scaletta. Cita i brani chiave per nome, i momenti di svolta della serata, il ritmo drammaturgico — apertura, climax, chiusura. (150-200 parole di prosa)
+Come è costruita la scaletta. Cita i brani chiave per nome — SOLO brani che sai con certezza essere stati eseguiti in questo concerto specifico, non la scaletta generica dell'artista. Se non conosci la scaletta precisa, descrivi la struttura generale senza inventare titoli. (150-200 parole di prosa)
 
 Suono e performance
-Come suonava dal vivo. Differenze rispetto agli album, strumentazione live documentata, episodi specifici della performance. Cita almeno un momento memorabile con dettagli verificabili. (150-200 parole di prosa)
+Come suonava dal vivo. Differenze rispetto agli album, strumentazione live documentata. Cita episodi specifici della performance — SOLO se documentati, non ricostruiti. (150-200 parole di prosa)
 
 Pubblico e luogo
-Il rapporto con la venue e con il pubblico. Capienza, atmosfera, contesto geografico e culturale. Cosa rendeva quel luogo diverso da qualsiasi altro. (100-150 parole di prosa)
+Il rapporto con la venue e con il pubblico. Capienza, atmosfera, contesto geografico e culturale — con dati verificabili. (100-150 parole di prosa)
 
 Perché cercarlo oggi
-Per concerti registrati: dove trovarlo, quale versione ascoltare, cosa non perdere. Per concerti leggendari senza registrazione ufficiale: perché vale la pena cercare i bootleg e cosa rivelano. (100-150 parole di prosa)
+Per concerti registrati: dove trovarlo, quale versione ascoltare, cosa non perdere. Per concerti senza registrazione ufficiale: perché vale la pena cercare i bootleg e cosa rivelano. (100-150 parole di prosa)
 
-Ascolto guidato
-3 registrazioni live o dischi dello stesso artista in ordine. Formato per ogni voce — una riga ciascuna:
-1. Titolo — Anno: istruzione specifica di ascolto
-2. Titolo — Anno: istruzione specifica di ascolto
-3. Titolo — Anno: dove porta
+${ASCOLTO_GUIDATO.replace(
+  "Il soggetto principale occupa sempre la posizione 3.",
+  "Il percorso deve guidare verso e oltre questo concerto specifico: usa registrazioni live documentate dello stesso artista o brani che aiutano a capire quel momento preciso della carriera."
+)}
 
-Frase definitiva
-Una sola frase. Massimo 30 parole. Punto di vista critico netto. Non deve piacere a tutti — deve essere vera.`,
+${FRASE_DEFINITIVA}`,
   },
 
   Vinile: {
-    assi: ["Contesto storico", "Suono e produzione", "Struttura lato A / lato B", "Collezionabilità", "Perché cercarlo oggi"],
-    prompt: (input) => `${PROMPT_BASE}
+    assi: ["Scheda tecnica", "Contesto storico", "Suono e produzione", "Struttura lato A / lato B", "Collezionabilità", "Perché cercarlo oggi"],
+    prompt: (input, artista) => `${PROMPT_BASE}
 
-Analizza il vinile "${input}". Struttura l'output ESATTAMENTE così, usando questi titoli di sezione su una riga sola:
+Analizza il vinile "${input}"${artista ? ` di ${artista}` : ""}. Struttura l'output ESATTAMENTE con questi titoli di sezione su una riga sola, nell'ordine indicato:
 
-Cronologia essenziale
-Formato lista, massimo 6 voci: anno — evento specifico. Solo i momenti che cambiano qualcosa.
+${CRONOLOGIA}
+
+Scheda tecnica
+Compila SOLO i campi che conosci con certezza. Per i campi incerti scrivi "n.d." invece di inventare.
+Titolo: [titolo esatto]
+Artista: [nome artista o band]
+Anno prima pressione: [anno, o decennio se incerto]
+Paese di origine: [paese]
+Etichetta: [etichetta originale, o "n.d." se incerta]
+Formato: [LP / EP / Singolo / altro]
+Produttore: [nome produttore/i, o "n.d." se incerto]
 
 Contesto storico
-Dove si colloca questa pubblicazione e perché quel momento contava. Cita anno, etichetta, paese di origine, contesto produttivo specifico. (150-200 parole di prosa)
+Dove si colloca questa pubblicazione e perché quel momento contava. Cita anno, etichetta, paese di origine, contesto produttivo — SOLO con dati verificabili. (150-200 parole di prosa)
 
 Suono e produzione
-Con attenzione specifica al formato fisico. Cita mastering engineer se documentato, differenze rispetto al digitale, caratteristiche tecniche della pressione originale, cosa cambia nell'ascolto su vinile. (150-200 parole di prosa)
+Con attenzione specifica al formato fisico. Cita mastering engineer SOLO se documentato. Descrivi le differenze rispetto al digitale e le caratteristiche della pressione originale — SOLO quelle che conosci con certezza per questa specifica edizione. (150-200 parole di prosa)
 
 Struttura lato A / lato B
-La divisione fisica come scelta editoriale e narrativa. Analizza brano per brano la sequenza di ciascun lato — i titoli per nome — e spiega la logica della costruzione. (150-200 parole di prosa)
+La divisione fisica come scelta editoriale e narrativa. Cita i titoli dei brani per nome — SOLO i titoli corretti di questo disco, nell'ordine corretto. Se non sei certo dell'ordine esatto dei brani, descrivi la struttura generale senza inventare sequenze. (150-200 parole di prosa)
 
 Collezionabilità
-Edizioni, pressioni, rarità, artwork. Cita la prima pressione con paese e anno, eventuali ristampe significative, valore di mercato indicativo se documentato, dettagli dell'artwork e del packaging. (100-150 parole di prosa)
+Edizioni, pressioni, rarità, artwork. Cita la prima pressione con paese e anno SOLO se documentati. Valore di mercato SOLO se hai dati verificabili. Non inventare cifre. (100-150 parole di prosa)
 
 Perché cercarlo oggi
-Cosa significa possedere questo disco in formato fisico oggi. Non nostalgia generica — un argomento specifico legato a questo titolo in particolare. (100-150 parole di prosa)
+Cosa significa possedere questo disco in formato fisico oggi. Un argomento specifico e concreto legato a questo titolo in particolare — non nostalgia generica. (100-150 parole di prosa)
 
-Ascolto guidato
-3 brani del disco in ordine consigliato. Formato per ogni voce — una riga ciascuna:
-1. Titolo: istruzione specifica di ascolto
-2. Titolo: istruzione specifica di ascolto
-3. Titolo: dove porta
+${ASCOLTO_GUIDATO.replace(
+  "Il soggetto principale occupa sempre la posizione 3.",
+  "Il percorso deve guidare all'ascolto fisico e contestuale: privilegia dischi con storia editoriale interessante o che suonano in modo distintivo su vinile. Cita SOLO titoli che esistono realmente."
+)}
 
-Frase definitiva
-Una sola frase. Massimo 30 parole. Punto di vista critico netto. Non deve piacere a tutti — deve essere vera.`,
+${FRASE_DEFINITIVA}`,
   },
 };
 
-const COLORI_ASSI = ["#1B3A6B", "#2D6A4F", "#7B2D3E", "#8B4A00", "#3D2B6B"];
+// ─── COLORI ───────────────────────────────────────────────────────────────────
+const COLORI_ASSI = ["#111111", "#1B3A6B", "#2D6A4F", "#7B2D3E", "#8B4A00", "#3D2B6B"];
 
 // ─── PARSING ──────────────────────────────────────────────────────────────────
 function parseOutput(testo, assi) {
   const tutteLeSezioni = ["Cronologia essenziale", ...assi, "Ascolto guidato", "Frase definitiva"];
   const risultati = [];
-
   for (let i = 0; i < tutteLeSezioni.length; i++) {
     const nome = tutteLeSezioni[i];
     const prossimo = tutteLeSezioni[i + 1];
@@ -209,10 +271,7 @@ function parseOutput(testo, assi) {
       const inizioProssimo = testo.indexOf(prossimo, dopoNome);
       if (inizioProssimo !== -1) fine = inizioProssimo;
     }
-    risultati.push({
-      nome,
-      contenuto: testo.slice(dopoNome, fine).trim(),
-    });
+    risultati.push({ nome, contenuto: testo.slice(dopoNome, fine).trim() });
   }
   return risultati;
 }
@@ -222,8 +281,8 @@ function getSezione(sezioni, nome) {
 }
 
 // ─── CHIAMATA API ─────────────────────────────────────────────────────────────
-async function chiamaGemini(percorso, input, onChunk, maxTentativi = 3) {
-  const promptCompleto = ASSI_CONFIG[percorso].prompt(input);
+async function chiamaGemini(percorso, input, artista, onChunk, maxTentativi = 3) {
+  const promptCompleto = ASSI_CONFIG[percorso].prompt(input, artista);
   for (let tentativo = 1; tentativo <= maxTentativi; tentativo++) {
     try {
       const response = await fetch(
@@ -266,30 +325,21 @@ async function chiamaGemini(percorso, input, onChunk, maxTentativi = 3) {
   }
 }
 
-// ─── COMPONENTE TIMELINE ──────────────────────────────────────────────────────
+// ─── COMPONENTI ───────────────────────────────────────────────────────────────
 function Cronologia({ contenuto }) {
   const righe = contenuto.split("\n").map((r) => r.replace(/^[-•]\s*/, "").trim()).filter(Boolean);
   return (
     <div style={{ marginBottom: "40px", position: "relative" }}>
-      {/* Linea orizzontale */}
-      <div style={{
-        position: "absolute", top: "10px", left: "0", right: "0",
-        height: "1px", backgroundColor: "#ccc", zIndex: 0,
-      }} />
-      <div style={{ display: "flex", gap: "0", overflowX: "auto", paddingBottom: "8px", position: "relative", zIndex: 1 }}>
+      <div style={{ position: "absolute", top: "10px", left: "0", right: "0", height: "1px", backgroundColor: "#ccc", zIndex: 0 }} />
+      <div style={{ display: "flex", overflowX: "auto", paddingBottom: "8px", position: "relative", zIndex: 1 }}>
         {righe.map((r, i) => {
           const sepIdx = r.indexOf("—");
           const anno = sepIdx !== -1 ? r.slice(0, sepIdx).trim() : "";
           const evento = sepIdx !== -1 ? r.slice(sepIdx + 1).trim() : r;
           return (
-            <div key={i} style={{ flex: "1", minWidth: "120px", maxWidth: "200px", paddingRight: "16px", position: "relative" }}>
-              {/* Punto sulla linea */}
-              <div style={{
-                width: "10px", height: "10px", borderRadius: "50%",
-                backgroundColor: "#111", marginBottom: "12px",
-                border: "2px solid #F5F2EE", boxShadow: "0 0 0 1px #111",
-              }} />
-              <p style={{ fontSize: "0.7rem", fontWeight: "bold", color: "#111", margin: "0 0 4px", letterSpacing: "0.5px" }}>{anno}</p>
+            <div key={i} style={{ flex: "1", minWidth: "130px", maxWidth: "200px", paddingRight: "16px", position: "relative" }}>
+              <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#111", marginBottom: "12px", border: "2px solid #F5F2EE", boxShadow: "0 0 0 1px #111" }} />
+              <p style={{ fontSize: "0.7rem", fontWeight: "bold", color: "#111", margin: "0 0 4px" }}>{anno}</p>
               <p style={{ fontSize: "0.78rem", color: "#555", lineHeight: "1.4", margin: 0 }}>{evento}</p>
             </div>
           );
@@ -299,74 +349,81 @@ function Cronologia({ contenuto }) {
   );
 }
 
-// ─── COMPONENTE PLAYER ────────────────────────────────────────────────────────
-function AscoltoGuidato({ contenuto }) {
-  const righe = contenuto.split("\n").map((r) => r.replace(/^\d+\.\s*/, "").trim()).filter(Boolean);
+function SchedaTecnica({ contenuto }) {
+  const righe = contenuto.split("\n").map((r) => r.trim()).filter((r) => r.includes(":"));
   return (
-    <div style={{
-      backgroundColor: "#111",
-      borderRadius: "16px",
-      padding: "24px",
-      color: "#fff",
-      display: "flex",
-      flexDirection: "column",
-      gap: "0",
-      height: "100%",
-      boxSizing: "border-box",
-    }}>
-      <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.4, margin: "0 0 20px" }}>
-        Ascolto guidato
-      </p>
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
       {righe.map((r, i) => {
         const colonIdx = r.indexOf(":");
-        const titolo = colonIdx !== -1 ? r.slice(0, colonIdx).trim() : r;
-        const istruzione = colonIdx !== -1 ? r.slice(colonIdx + 1).trim() : "";
-        const isMiddle = i === 1;
+        const chiave = r.slice(0, colonIdx).trim();
+        const valore = r.slice(colonIdx + 1).trim();
         return (
-          <div key={i} style={{
-            padding: "14px 0",
-            borderBottom: i < righe.length - 1 ? "1px solid rgba(255,255,255,0.08)" : "none",
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "14px",
-          }}>
-            {/* Icona play / cerchio */}
-            <div style={{
-              width: "28px",
-              height: "28px",
-              borderRadius: "50%",
-              backgroundColor: isMiddle ? "#fff" : "rgba(255,255,255,0.1)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              marginTop: "2px",
-            }}>
-              <div style={{
-                width: 0,
-                height: 0,
-                borderTop: "5px solid transparent",
-                borderBottom: "5px solid transparent",
-                borderLeft: isMiddle ? "8px solid #111" : "8px solid rgba(255,255,255,0.5)",
-                marginLeft: "2px",
-              }} />
-            </div>
-            <div>
-              <p style={{
-                fontSize: isMiddle ? "0.95rem" : "0.85rem",
-                fontWeight: isMiddle ? "bold" : "normal",
-                margin: "0 0 4px",
-                opacity: isMiddle ? 1 : 0.7,
-              }}>{titolo}</p>
-              {istruzione && (
-                <p style={{ fontSize: "0.75rem", opacity: 0.45, margin: 0, lineHeight: "1.4", fontStyle: "italic" }}>
-                  {istruzione}
-                </p>
-              )}
-            </div>
+          <div key={i} style={{ display: "flex", gap: "12px", alignItems: "baseline" }}>
+            <span style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "1.5px", opacity: 0.5, minWidth: "80px", flexShrink: 0 }}>{chiave}</span>
+            <span style={{ fontSize: "0.9rem", lineHeight: "1.4" }}>{valore}</span>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function AscoltoGuidato({ contenuto }) {
+  const righe = contenuto.split("\n").map((r) => r.replace(/^\d+\.\s*/, "").trim()).filter(Boolean);
+  return (
+    <div style={{ backgroundColor: "#111", borderRadius: "16px", padding: "28px", color: "#fff" }}>
+      <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.4, margin: "0 0 20px" }}>
+        Ascolto guidato
+      </p>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {righe.map((r, i) => {
+          const colonIdx = r.indexOf(":");
+          const titolo = colonIdx !== -1 ? r.slice(0, colonIdx).trim() : r;
+          const istruzione = colonIdx !== -1 ? r.slice(colonIdx + 1).trim() : "";
+          const isCentrale = i === 2;
+          return (
+            <div key={i} style={{ padding: "14px 0", borderBottom: i < righe.length - 1 ? "1px solid rgba(255,255,255,0.07)" : "none", display: "flex", alignItems: "flex-start", gap: "14px" }}>
+              <div style={{ width: "28px", height: "28px", borderRadius: "50%", flexShrink: 0, marginTop: "2px", backgroundColor: isCentrale ? "#fff" : "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {isCentrale ? (
+                  <div style={{ width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent", borderLeft: "8px solid #111", marginLeft: "2px" }} />
+                ) : (
+                  <span style={{ fontSize: "0.65rem", opacity: 0.5 }}>{i + 1}</span>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: isCentrale ? "1rem" : "0.88rem", fontWeight: isCentrale ? "bold" : "normal", margin: "0 0 4px", opacity: isCentrale ? 1 : 0.75 }}>{titolo}</p>
+                {istruzione && <p style={{ fontSize: "0.75rem", opacity: 0.4, margin: 0, lineHeight: "1.5", fontStyle: "italic" }}>{istruzione}</p>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function NonTrovato({ input }) {
+  return (
+    <div style={{ maxWidth: "960px", margin: "0 auto", width: "100%", textAlign: "center", padding: "64px 24px" }}>
+      <p style={{ fontSize: "2rem", marginBottom: "16px" }}>🎧</p>
+      <p style={{ fontSize: "clamp(1.1rem, 3vw, 1.3rem)", color: "#111", fontWeight: "bold", marginBottom: "12px" }}>
+        La tua conoscenza musicale supera la nostra.
+      </p>
+      <p style={{ fontSize: "clamp(0.85rem, 2.5vw, 1rem)", color: "#666", lineHeight: "1.7", maxWidth: "480px", margin: "0 auto 20px" }}>
+        Non abbiamo trovato informazioni sufficienti su <em>"{input}"</em> per produrre un'analisi affidabile. Preferiamo il silenzio all'invenzione.
+      </p>
+      <p style={{ fontSize: "0.82rem", color: "#999" }}>
+        Prova ad aggiungere il nome dell'artista nel campo apposito.
+      </p>
+    </div>
+  );
+}
+
+function BoxAsse({ s, colore, children }) {
+  return (
+    <div style={{ backgroundColor: colore, borderRadius: "12px", padding: "24px", color: "#fff" }}>
+      <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.6, margin: "0 0 12px" }}>{s.nome}</p>
+      {children || <p style={{ fontSize: "clamp(0.85rem, 2.5vw, 0.95rem)", lineHeight: "1.75", margin: 0 }}>{s.contenuto}</p>}
     </div>
   );
 }
@@ -375,15 +432,19 @@ function AscoltoGuidato({ contenuto }) {
 export default function App() {
   const [percorso, setPercorso] = useState("Artista");
   const [input, setInput] = useState("");
+  const [artista, setArtista] = useState("");
   const [outputRaw, setOutputRaw] = useState("");
   const [loading, setLoading] = useState(false);
   const [errore, setErrore] = useState("");
   const [titoloRicerca, setTitoloRicerca] = useState("");
   const [completato, setCompletato] = useState(false);
 
+  const mostraArtista = percorso !== "Artista";
   const config = ASSI_CONFIG[percorso];
-  const sezioni = completato ? parseOutput(outputRaw, config.assi) : [];
+  const nonTrovato = completato && outputRaw.includes("Non ho informazioni sufficienti");
+  const sezioni = completato && !nonTrovato ? parseOutput(outputRaw, config.assi) : [];
   const cronologia = getSezione(sezioni, "Cronologia essenziale");
+  const schedaTecnica = getSezione(sezioni, "Scheda tecnica");
   const assiSezioni = sezioni.filter((s) => config.assi.includes(s.nome));
   const ascolto = getSezione(sezioni, "Ascolto guidato");
   const frase = getSezione(sezioni, "Frase definitiva");
@@ -395,6 +456,7 @@ export default function App() {
     setTitoloRicerca("");
     setErrore("");
     setInput("");
+    setArtista("");
   }
 
   async function handleEsplora() {
@@ -402,11 +464,12 @@ export default function App() {
     setLoading(true);
     setOutputRaw("");
     setErrore("");
-    setTitoloRicerca(input);
+    const titolo = artista.trim() ? `${input} — ${artista}` : input;
+    setTitoloRicerca(titolo);
     setCompletato(false);
     let testo = "";
     try {
-      await chiamaGemini(percorso, input, (chunk) => {
+      await chiamaGemini(percorso, input, artista.trim(), (chunk) => {
         testo += chunk;
         setOutputRaw(testo);
       });
@@ -424,15 +487,7 @@ export default function App() {
   }
 
   return (
-    <div style={{
-      fontFamily: "Georgia, serif",
-      minHeight: "100vh",
-      backgroundColor: "#F5F2EE",
-      padding: "32px 16px",
-      display: "flex",
-      flexDirection: "column",
-      boxSizing: "border-box",
-    }}>
+    <div style={{ fontFamily: "Georgia, serif", minHeight: "100vh", backgroundColor: "#F5F2EE", padding: "32px 16px", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
 
       {/* Header */}
       <div style={{ maxWidth: "960px", margin: "0 auto", textAlign: "center", marginBottom: "32px", width: "100%" }}>
@@ -441,11 +496,7 @@ export default function App() {
       </div>
 
       {/* Selettore percorso */}
-      <div style={{
-        maxWidth: "960px", margin: "0 auto", display: "flex", justifyContent: "center",
-        gap: "8px", marginBottom: "24px", flexWrap: "wrap", width: "100%",
-        padding: "0 8px", boxSizing: "border-box",
-      }}>
+      <div style={{ maxWidth: "960px", margin: "0 auto", display: "flex", justifyContent: "center", gap: "8px", marginBottom: "24px", flexWrap: "wrap", width: "100%", padding: "0 8px", boxSizing: "border-box" }}>
         {PERCORSI.map((p) => (
           <button key={p} onClick={() => handlePercorso(p)} style={{
             padding: "7px 16px", borderRadius: "999px", border: "2px solid #111",
@@ -467,12 +518,18 @@ export default function App() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleEsplora()}
-          style={{
-            width: "100%", padding: "14px 20px", fontSize: "clamp(0.9rem, 3.5vw, 1rem)",
-            fontFamily: "Georgia, serif", border: "2px solid #111", borderRadius: "8px",
-            marginBottom: "12px", backgroundColor: "#fff", boxSizing: "border-box",
-          }}
+          style={{ width: "100%", padding: "14px 20px", fontSize: "clamp(0.9rem, 3.5vw, 1rem)", fontFamily: "Georgia, serif", border: "2px solid #111", borderRadius: "8px", marginBottom: "10px", backgroundColor: "#fff", boxSizing: "border-box" }}
         />
+        {mostraArtista && (
+          <input
+            type="text"
+            placeholder="Artista (opzionale, ma consigliato)"
+            value={artista}
+            onChange={(e) => setArtista(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleEsplora()}
+            style={{ width: "100%", padding: "12px 20px", fontSize: "clamp(0.85rem, 3vw, 0.95rem)", fontFamily: "Georgia, serif", border: "2px solid #ccc", borderRadius: "8px", marginBottom: "10px", backgroundColor: "#fff", boxSizing: "border-box", color: "#555" }}
+          />
+        )}
         <button onClick={handleEsplora} disabled={loading} style={{
           width: "100%", padding: "14px 40px", backgroundColor: "#111", color: "#fff",
           border: "none", borderRadius: "8px", fontFamily: "Georgia, serif",
@@ -490,89 +547,44 @@ export default function App() {
         </div>
       )}
 
-      {/* Streaming in corso */}
+      {/* Streaming */}
       {loading && outputRaw && (
-        <div style={{
-          maxWidth: "960px", margin: "0 auto", padding: "20px", backgroundColor: "#fff",
-          borderRadius: "12px", border: "1px solid #ddd", whiteSpace: "pre-wrap",
-          fontFamily: "Georgia, serif", lineHeight: "1.7", color: "#333",
-          width: "100%", boxSizing: "border-box",
-        }}>
+        <div style={{ maxWidth: "960px", margin: "0 auto", padding: "20px", backgroundColor: "#fff", borderRadius: "12px", border: "1px solid #ddd", whiteSpace: "pre-wrap", fontFamily: "Georgia, serif", lineHeight: "1.7", color: "#333", width: "100%", boxSizing: "border-box" }}>
           {outputRaw}
         </div>
       )}
 
+      {/* Non trovato */}
+      {nonTrovato && <NonTrovato input={titoloRicerca} />}
+
       {/* Output finale */}
-      {completato && sezioni.length > 0 && (
+      {completato && !nonTrovato && sezioni.length > 0 && (
         <div style={{ maxWidth: "960px", margin: "0 auto", width: "100%", padding: "0 8px", boxSizing: "border-box" }}>
 
-          {/* Titolo */}
           <div style={{ textAlign: "center", marginBottom: "32px" }}>
             <p style={{ fontSize: "0.75rem", color: "#999", textTransform: "uppercase", letterSpacing: "3px", marginBottom: "8px" }}>{percorso}</p>
             <h2 style={{ fontSize: "clamp(1.6rem, 6vw, 2.4rem)", fontWeight: "bold", color: "#111", margin: 0 }}>{titoloRicerca}</h2>
           </div>
 
-          {/* 1. CRONOLOGIA — timeline orizzontale */}
           {cronologia && <Cronologia contenuto={cronologia} />}
 
-          {/* 2. GRIGLIA ASSI + PLAYER AFFIANCATO */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: "16px",
-            marginBottom: "32px",
-          }}>
-            {/* Riga con griglia assi a sinistra e player a destra */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: ascolto ? "1fr 280px" : "1fr",
-              gap: "16px",
-              alignItems: "start",
-            }}>
-              {/* Griglia assi 2:2:1 */}
-              <div>
-                {/* Prima riga — 2 box */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
-                  {assiSezioni.slice(0, 2).map((s, i) => (
-                    <div key={i} style={{
-                      backgroundColor: COLORI_ASSI[i], borderRadius: "12px", padding: "24px",
-                      color: "#fff", animation: `fadeInUp 0.4s ease ${i * 0.1}s both`,
-                    }}>
-                      <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.6, margin: "0 0 10px" }}>{s.nome}</p>
-                      <p style={{ fontSize: "clamp(0.85rem, 2.5vw, 0.95rem)", lineHeight: "1.75", margin: 0 }}>{s.contenuto}</p>
-                    </div>
-                  ))}
-                </div>
-                {/* Seconda riga — 2 box */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
-                  {assiSezioni.slice(2, 4).map((s, i) => (
-                    <div key={i} style={{
-                      backgroundColor: COLORI_ASSI[i + 2], borderRadius: "12px", padding: "24px",
-                      color: "#fff", animation: `fadeInUp 0.4s ease ${(i + 2) * 0.1}s both`,
-                    }}>
-                      <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.6, margin: "0 0 10px" }}>{s.nome}</p>
-                      <p style={{ fontSize: "clamp(0.85rem, 2.5vw, 0.95rem)", lineHeight: "1.75", margin: 0 }}>{s.contenuto}</p>
-                    </div>
-                  ))}
-                </div>
-                {/* Terza riga — 1 box largo */}
-                {assiSezioni[4] && (
-                  <div style={{
-                    backgroundColor: COLORI_ASSI[4], borderRadius: "12px", padding: "24px",
-                    color: "#fff", animation: `fadeInUp 0.4s ease 0.4s both`,
-                  }}>
-                    <p style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "2px", opacity: 0.6, margin: "0 0 10px" }}>{assiSezioni[4].nome}</p>
-                    <p style={{ fontSize: "clamp(0.85rem, 2.5vw, 0.95rem)", lineHeight: "1.75", margin: 0 }}>{assiSezioni[4].contenuto}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Player ascolto guidato — colonna destra */}
-              {ascolto && <AscoltoGuidato contenuto={ascolto} />}
-            </div>
+          <div className="griglia-box">
+            {schedaTecnica && (
+              <BoxAsse s={{ nome: "Scheda tecnica" }} colore={COLORI_ASSI[0]}>
+                <SchedaTecnica contenuto={schedaTecnica} />
+              </BoxAsse>
+            )}
+            {assiSezioni.filter(s => s.nome !== "Scheda tecnica").map((s, i) => (
+              <BoxAsse key={i} s={s} colore={COLORI_ASSI[i + 1]} />
+            ))}
           </div>
 
-          {/* 3. FRASE DEFINITIVA — testo semplice */}
+          {ascolto && (
+            <div style={{ marginTop: "16px", marginBottom: "16px" }}>
+              <AscoltoGuidato contenuto={ascolto} />
+            </div>
+          )}
+
           {frase && (
             <div style={{ textAlign: "center", padding: "32px 16px 48px", borderTop: "1px solid #ddd" }}>
               <p style={{ fontSize: "clamp(1rem, 3vw, 1.2rem)", color: "#333", fontStyle: "italic", lineHeight: "1.6", maxWidth: "600px", margin: "0 auto" }}>
@@ -585,9 +597,7 @@ export default function App() {
 
       {/* Footer */}
       <div style={{ maxWidth: "960px", margin: "auto auto 0", width: "100%", textAlign: "center", borderTop: "1px solid #ddd", paddingTop: "24px" }}>
-        <p style={{ fontSize: "0.8rem", color: "#999" }}>
-          Le analisi di Liner sono generate con il supporto di Gemini, il modello AI di Google.
-        </p>
+        <p style={{ fontSize: "0.8rem", color: "#999" }}>Le analisi di Liner sono generate con il supporto di Gemini, il modello AI di Google.</p>
       </div>
 
       <style>{`
@@ -595,8 +605,16 @@ export default function App() {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        .griglia-box {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+          margin-bottom: 0;
+        }
         @media (max-width: 640px) {
-          .griglia-assi { grid-template-columns: 1fr !important; }
+          .griglia-box {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>
